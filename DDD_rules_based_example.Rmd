@@ -1,0 +1,140 @@
+---
+title: "Week 7 - Rules-based Clustering for Segmentation"
+author: "Chris Healey"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+I want to use a common ML dataset, Titanic passengers, for our examples this week.
+
+Our main goal is to identify characteristics of passenger survival using rules-based clustering (covering continuous and categorical features).
+
+
+# Creating rules
+In this section, we try to identify clusters with a few simple rules.  
+
+## Load data
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+```{r}
+#load data
+DDD <- read_csv("CustomerDF_Clean.csv")
+```
+
+## Use cut to create groups 
+```{r}
+PCT <- ggplot(data=DDD) + geom_histogram(aes(x=PhoneCoTenure))
+print(PCT)
+```
+Let's create a rule based on Fare using **cut**, turning the continuous variable Fare into a discrete one called Group
+
+```{r}
+DDD$PCTGroup <- cut(DDD$PhoneCoTenure, breaks=c(0,24,48,72), labels=c("LowTen","MedTen","HighTen"))
+DDD$TTGroup <- cut(DDD$TotalTech, breaks=c(-1,2,4), labels=c("LowTech", "HighTech"))
+DDD$HIGroup <- cut(DDD$HHIncome_Dollars, breaks=c(0,38000,67000, 1073000), labels=c("LowHI","MedHI","HighHI"))
+DDD$MonthSvcGroup <- cut(DDD$AllSvcMonth, breaks=c(0,51, 300), labels=c("LowMth","HighMth"))
+#DDD$AgeGroup <- cut(DDD$Age, breaks=c(0,47, 80), labels=c("Young","Old"))
+DDD$AgeGroup <- cut(DDD$Age, breaks=c(0,39,59, 80), labels=c("Young","Mid", "Old"))
+DDD$TVGroup <- cut(DDD$TVWatchingHours, breaks=c(0,20, 37), labels=c("High","Low"))
+DDD$HHSizeGroup <- cut(DDD$HouseholdSize, breaks=c(0,2,5, 10), labels=c("LowSize","MedSize","HighSize"))
+DDD$PetGroup <- cut(DDD$NumberPets, breaks=c(-1,0,2, 10), labels=c("None","Few","Many"))
+
+```
+
+We can combine this rule with the Sex variable to create 6 segments
+
+```{r}
+#IncomeVSAge
+DDDGrps <- DDD %>% mutate(segment = case_when(
+      HIGroup == "LowHI" & AgeGroup == "Young" ~ 1,
+      HIGroup == "MedHI" & AgeGroup == "Young" ~ 2,
+      HIGroup == "HighHI" & AgeGroup == "Young" ~ 3,
+      HIGroup == "LowHI" & AgeGroup != "Young" ~ 4,
+      HIGroup == "MedHI" & AgeGroup != "Young" ~ 5,
+      TRUE ~ 6
+    ))
+
+#df %>% write_csv("DDDGrps.csv")
+```
+
+```{r}
+#MonthlyVSAge
+DDDGrps <- DDD %>% mutate(segment = case_when(
+      MonthSvcGroup == "LowMth" & AgeGroup == "Young" ~ 1,
+      MonthSvcGroup == "HighMth" & AgeGroup == "Young" ~ 2,
+      MonthSvcGroup == "LowMth" & AgeGroup != "Young" ~ 3,
+      TRUE ~ 4
+    ))
+
+#df %>% write_csv("output_of_segmentation.csv")
+```
+
+```{r}
+#MonthlyVSAge
+DDDGrps <- DDD %>% mutate(segment = case_when(
+      NewsSubscriber == "No" & AgeGroup == "Young" ~ 1,
+      NewsSubscriber == "Yes" & AgeGroup == "Young" ~ 2,
+      NewsSubscriber == "No" & AgeGroup != "Young" ~ 3,
+      TRUE ~ 4
+    ))
+
+#df %>% write_csv("output_of_segmentation.csv")
+```
+
+```{r}
+#NewsVSAge
+DDDGrps <- DDD %>% mutate(segment = case_when(
+      AgeGroup == "Young" & NewsSubscriber == "No" ~ 1,
+      AgeGroup == "Mid" & NewsSubscriber == "No" ~ 2,
+      AgeGroup == "Old" & NewsSubscriber == "No" ~ 3,
+      AgeGroup == "Young" & NewsSubscriber != "No" ~ 4,
+      AgeGroup == "Mid" & NewsSubscriber != "No" ~ 5,
+      TRUE ~ 6
+    ))
+
+#df %>% write_csv("output_of_segmentation.csv")
+```
+
+```{r}
+#MaritalVSAge
+DDDGrps <- DDD %>% mutate(segment = case_when(
+      MaritalStatus == "Married" & AgeGroup == "Young" ~ 1,
+      MaritalStatus == "Unmarried" & AgeGroup == "Young" ~ 2,
+      MaritalStatus == "Married" & AgeGroup != "Young" ~ 3,
+      TRUE ~ 4
+    ))
+
+#df %>% write_csv("output_of_segmentation.csv")
+```
+
+
+## Segment profiles
+For the segment profiles, I summarize the results of each segment (using the original dataset columns -- without the scaling).
+```{r}
+DDD %>% add_count(AgeGroup) %>%
+  group_by(AgeGroup,n) %>% 
+  summarise_all("mean")
+```
+
+```{r}
+DDDGrps %>% select(-c("NewsSubscriber", "AgeGroup")) %>% add_count(segment) %>%
+  group_by(segment,n) %>% 
+  summarise_all("mean")
+```
+
+## Example 2-D Visualization
+Here's visualization of the segments featuring two real-valued variables.
+```{r}
+g <- ggplot(DDDGrps)+geom_point(aes(x=PhoneCoTenure,y=Age,colour=as.factor(segment)))
+print(g)
+```
+
+```{r}
+PCT <- ggplot(data=DDDGrps) + geom_histogram(aes(x=segment))
+print(PCT)
+```

@@ -1,0 +1,237 @@
+---
+title: "Data Due Diligence"
+author: "Cameron Gallien"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+Importing data and summarizing.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+CustomerDF = read_csv("Customer_Dataset_Data.csv")
+summary(CustomerDF)
+```
+#HHIncome -> Numeric
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(HHIncome_Dollars = parse_number(HHIncome))
+print(head(CustomerDF$HHIncome_Dollars))
+print(summary(CustomerDF$HHIncome_Dollars))
+```
+#Cleaning CarOwnership & CarBrand
+
+<!-- CustomerDF$CarOwnership_Clean <- CustomerDF$CarOwnership -->
+<!-- CustomerDF$CarOwnership_Clean <- na_if(CustomerDF$CarOwnership_Clean, -1) -->
+<!-- CustomerDF$CarBrand_Clean <- CustomerDF$CarBrand -->
+<!-- CustomerDF$CarBrand_Clean <- na_if(CustomerDF$CarBrand_Clean, -1) -->
+
+#CarValue -> Numeric, take out -1000s
+
+```{r}
+CustomerDF$CarValue_Dollars <- CustomerDF$CarValue
+CustomerDF['CarValue_Dollars'][CustomerDF['CarValue_Dollars']=='($1,000.00)'] <- '0'
+
+CustomerDF <-CustomerDF %>% mutate(CarValue_Dollars = parse_number(CarValue_Dollars))
+print(head(CustomerDF$CarValue_Dollars))
+print(summary(CustomerDF$CarValue_Dollars))
+```
+
+#CardSpendMonth -> Numeric, NA's to 0
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(CardMonth_Dollars = parse_number(CardSpendMonth))
+print(head(CustomerDF$CardMonth_Dollars))
+print(summary(CustomerDF$CardMonth_Dollars))
+```
+
+```{r}
+CustomerDF = CustomerDF %>% mutate(CardMonth_Dollars = replace_na(CustomerDF$CardMonth_Dollars,replace=0))
+print(summary(CustomerDF$CardMonth_Dollars))
+```
+
+#VoiceLastMonth -> Numeric
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(VoiceMonth_Dollars = parse_number(VoiceLastMonth))
+print(head(CustomerDF$VoiceMonth_Dollars))
+print(summary(CustomerDF$VoiceMonth_Dollars))
+```
+
+#VoiceOverTenure -> Numeric
+
+Going to take out NA values later when conducting analyses
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(VoiceTenure_Dollars = parse_number(VoiceOverTenure))
+print(head(CustomerDF$VoiceTenure_Dollars))
+print(summary(CustomerDF$VoiceTenure_Dollars))
+```
+
+#EquipmentLastMonth -> Numeric, NAs -> 0
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(EquipMonth_Dollars = parse_number(EquipmentLastMonth))
+print(head(CustomerDF$EquipMonth_Dollars))
+print(summary(CustomerDF$EquipMonth_Dollars))
+```
+```{r}
+CustomerDF = CustomerDF %>% mutate(EquipMonth_Dollars = replace_na(CustomerDF$EquipMonth_Dollars,replace=0))
+print(summary(CustomerDF$EquipMonth_Dollars))
+```
+
+#EquipmentOverTenure -> Numeric, NAs to 0
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(EquipTenure_Dollars = parse_number(EquipmentOverTenure))
+print(head(CustomerDF$EquipTenure_Dollars))
+print(summary(CustomerDF$EquipTenure_Dollars))
+```
+```{r}
+CustomerDF = CustomerDF %>% mutate(EquipTenure_Dollars = replace_na(CustomerDF$EquipTenure_Dollars,replace=0))
+print(summary(CustomerDF$EquipTenure_Dollars))
+```
+
+#DataLastMonth -> Numeric, NAs -> 0
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(DataMonth_Dollars = parse_number(DataLastMonth))
+print(head(CustomerDF$DataMonth_Dollars))
+print(summary(CustomerDF$DataMonth_Dollars))
+```
+
+```{r}
+CustomerDF = CustomerDF %>% mutate(DataMonth_Dollars = replace_na(CustomerDF$DataMonth_Dollars,replace=0))
+print(summary(CustomerDF$DataMonth_Dollars))
+```
+
+#DataOverTenure-> Numeric, NAs -> 0
+
+```{r}
+CustomerDF <-CustomerDF %>% mutate(DataTenure_Dollars = parse_number(DataOverTenure))
+print(head(CustomerDF$DataTenure_Dollars))
+print(summary(CustomerDF$DataTenure_Dollars))
+```
+
+```{r}
+CustomerDF = CustomerDF %>% mutate(DataTenure_Dollars = replace_na(CustomerDF$DataTenure_Dollars,replace=0))
+print(summary(CustomerDF$DataTenure_Dollars))
+```
+
+<!-- 
+<!-- CustomerDF$Internet_Cleaned <-CustomerDF$Internet -->
+<!-- CustomerDF$Internet_Cleaned <- replace(CustomerDF$Internet_Cleaned, CustomerDF$Internet_Cleaned=="2", NA) -->
+<!-- CustomerDF$Internet_Cleaned <- replace(CustomerDF$Internet_Cleaned, CustomerDF$Internet_Cleaned=="3", NA) -->
+<!-- CustomerDF$Internet_Cleaned <- replace(CustomerDF$Internet_Cleaned, CustomerDF$Internet_Cleaned=="4", NA) -->
+
+#Create new column - All Services
+
+```{r}
+CustomerDF$AllServices <- ifelse(CustomerDF$DataTenure_Dollars>0 & CustomerDF$VoiceTenure_Dollars>0 & CustomerDF$EquipTenure_Dollars>0,TRUE, FALSE)
+```
+
+# Create new column - All Services total
+
+```{r}
+CustomerDF <- CustomerDF %>% rowwise() %>% mutate(AllSvcTotal = sum(c(DataTenure_Dollars, VoiceTenure_Dollars, EquipTenure_Dollars)))
+
+```
+# Create new column - All Services avg month
+
+```{r}
+CustomerDF <- CustomerDF %>% rowwise() %>% mutate(AllSvcMonth = sum(c(DataTenure_Dollars, VoiceTenure_Dollars, EquipTenure_Dollars)/PhoneCoTenure))
+
+```
+# New column - HHIncome/HHSize
+```{r}
+CustomerDF$IncomePerMember <- CustomerDF$HHIncome_Dollars/CustomerDF$HouseholdSize
+```
+# Total Tech New Column
+```{r}
+df1 <- data.frame(CustomerDF$CustomerID, CustomerDF$OwnsPC, CustomerDF$OwnsMobileDevice, CustomerDF$OwnsGameSystem, CustomerDF$OwnsFax)
+df1$totaltech <- apply(df1, 1, function(x) length(which(x=="Yes")))
+
+CustomerDF <- data.frame(CustomerDF, df1$totaltech)
+names(CustomerDF)[74] <- "TotalTech"
+```
+
+
+# Visualizations
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+RegionHist <- ggplot(data=CustomerDF) + geom_bar(aes(x=Region))
+print(RegionHist)
+```
+```{r}
+JobHist <- ggplot(data=CustomerDF) + geom_bar(aes(x=JobCategory))
+print(JobHist)
+```
+
+```{r}
+TotalTechHist <- ggplot(data=CustomerDF) + geom_bar(aes(x=TotalTech)) +
+  labs(x='Total Additional Pieces of Technology')
+print(TotalTechHist)
+```
+
+```{r}
+IncomeByJobCategory <- ggplot(data=CustomerDF) + geom_boxplot(aes(x = as.factor(JobCategory),y=AllSvcMonth)) + 
+  labs(x='Job Category',
+       y='Average Spent per Month in Dollars')
+print(IncomeByJobCategory)
+
+```
+
+```{r}
+AverageSpentByRegion <- ggplot(data=CustomerDF) + geom_boxplot(aes(x = as.factor(Region),y=AllSvcMonth)) +
+  labs(x='Region',
+       y='Average Spent per Month in Dollars')
+print(AverageSpentByRegion)
+
+```
+
+```{r}
+Education_Spend <- ggplot(data=CustomerDF) +geom_point(aes(x=EducationYears,y=AllSvcMonth
+)) +
+  labs(x='Years of Education',
+       y='Average Spent per Month in Dollars')
+print(Education_Spend)
+```
+
+```{r}
+AmountSpendByTotalTech <- ggplot(data=CustomerDF) + geom_boxplot(aes(x = as.factor(TotalTech
+),y=AllSvcMonth)) +
+  labs(x='Total Additional Pieces of Technology',
+       y='Average Spent per Month in Dollars')
+print(AmountSpendByTotalTech)
+```
+
+```{r}
+AmountSpendByServices <- ggplot(data=CustomerDF) + geom_boxplot(aes(x = as.factor(AllServices
+),y=AllSvcMonth)) +
+  labs(x='Subscribes to All Services',
+       y='Average Spent per Month in Dollars')
+print(AmountSpendByServices)
+```
+```{r}
+HHIncome_Spend <- ggplot(data=CustomerDF) +geom_point(aes(x=HHIncome_Dollars,y=AllSvcMonth)) +
+coord_cartesian(xlim = c(0, 1000000)) +
+  labs(x='HHIncome in Dollars',
+       y='Average Spent per Month in Dollars',
+  )
+print(HHIncome_Spend)
+```
+
+```{r}
+Debt_Spend <- ggplot(data=CustomerDF) +geom_point(aes(x=DebtToIncomeRatio,y=AllSvcMonth)) +
+  labs(x='Debt To Income Ratio',
+       y='Average Spent per Month in Dollars')
+
+print(Debt_Spend)
+```
+
+
+
